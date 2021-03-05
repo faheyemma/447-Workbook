@@ -1,0 +1,182 @@
+---
+title: "Workbook 2"
+author: "Emma"
+date: "03/03/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r General Notes, include=FALSE}
+# keyboard shortcut for insert chunk code is ctr, shift, i
+
+# keyboard shortcut for return is ctrl, shift, enter for whole chunk, just ctrl enter for line. 
+```
+
+```{r 10 Mathematical Equations}
+# 7. Mathematical Equations 
+
+250+567
+2+3
+1234+5678
+345-78
+65-10
+5678-1234
+24*56
+2*4
+6/3
+54/8
+
+```
+
+```{r square root}
+# 8. Square Root of 324
+sqrt(324)
+```
+
+```{r Iris Dataset}
+str(iris)
+
+# 9-11 Iris Dataset
+
+# Flower with longest sepal length 
+
+max(iris$Sepal.Length)
+
+# Flower with shortest sepal length 
+
+min(iris$Sepal.Length)
+
+# Difference between longest and shortest length 
+
+(max(iris$Sepal.Length) - min(iris$Sepal.Length))
+```
+
+```{r Data Frame}
+
+# 12. Making a new dataframe
+
+df<-data.frame( a = c(1:100),
+                b = c(1:100), 
+                c = c(1:100), 
+                d = c(1:100), 
+                e = c(1:100), 
+                f = c(1:100), 
+                g = c(1:100) )
+```
+
+```{r Renaming the Data Frame}
+# 13. Renaming the dataframe
+
+names(df)[]<- c("Grumpy", "Dopey", "Doc", "Happy", "Bashful", "Sneezy", "Sleepy")
+
+str(df)
+```
+
+```{r questions 14-16}
+# 14. women dataset, Linear model. 
+
+w1<- lm(height ~ weight, data = women)
+summary(women)
+
+# 15. table
+sjPlot::tab_model(w1)
+
+# plot the coefficients 
+sjPlot::plot_model(w1)
+
+
+# 16. Using ggeffects, create a prediction plot for this model.
+p1<- ggeffects::ggpredict(w1, terms = "weight")
+plot(p1)
+
+```
+
+```{r #17}
+# 17. this calculation gives you the proportion of women that weigh over 140llb. 
+
+sum(women$weight > 140) / length(women$weight)
+```
+```{r #18}
+# 18. calculate the mean and then calculate the proportion of women over that mean weight 
+
+sum(women$weight) / length(women$weight)
+mean(women$weight)
+sum(women$weight > 136.7333) / length(women$weight) 
+
+# 19. The advantages of having more breaks in the Petal Length indicator are that you can see more detail from the data. The distribution is more accurate when spread out over more breaks. However, in this case, the data has similar patterns in a condensed form, so the advantages of less breaks in this case are that the graph is simpler to read and see the patterns. 
+
+```
+
+```{r #20}
+# 20. error in the below code
+mh <- mean(women$height)
+sum(women$weight > mh) / length(women$height)
+
+# the weight should be height. It calculates the proportion of womens heights under the mean height for women. See below for corrected. 
+
+sum(women$height > mh) / length(women$height)
+
+```
+
+```{r #21}
+# 21. reorder columns of woman dataset so weight comes before height. 
+# Then rename columns w and h.
+
+women2 <- women
+
+women2[c("weight", "height")]
+names(women2)[] <- c("w", "h")
+
+str(women2)
+
+```
+
+```{r #22}
+#22. Read data into R using the following method:
+
+library(readr)
+testdata <- readr::read_csv(url("https://raw.githubusercontent.com/go-bayes/psych-447/main/data/testdata1.csv"))
+str(testdata)
+
+# Save data into data folder
+
+library(here)
+saveRDS(testdata, here::here("data", "td1.RDS"))
+
+# read data back into R 
+
+td <- readRDS(here::here("data", "td1.RDS"))
+str(td)
+
+```
+
+
+```{r #23}
+# 23. using td dataset, write linear model for height ~ weight as above 
+
+t1<- lm(height ~ weight, data = td)
+summary(td)
+
+```
+
+```{r}
+# 24. table
+sjPlot::tab_model(t1)
+```
+
+```{r}
+#coefficient plot
+sjPlot::plot_model(t1)
+```
+
+```{r}
+# 25. Prediction plot for td dataset 
+pt1<- ggeffects::ggpredict(w1, terms = "weight")
+plot(pt1)
+```
+
