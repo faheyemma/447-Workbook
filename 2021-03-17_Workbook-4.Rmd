@@ -1,0 +1,336 @@
+---
+title: "2021-03-17_Workbook-4"
+author: "Emma"
+date: "16/03/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Code to Run, include=FALSE}
+
+library(tidyverse)
+library(lubridate)
+library(pmdplyr)
+library(correlation)
+library(ggraph)
+library(patchwork)
+library(dbplyr)
+
+```
+
+```{r Importing Data, include=FALSE}
+# read data 
+nz_0 <- readr::read_csv2(url("https://raw.githubusercontent.com/go-bayes/psych-447/main/data/nz/nz.csv"))
+
+# to relevel kessler 6 variables
+f<-c("None Of The Time","A Little Of The Time","Some Of The Time",  "Most Of The Time", "All Of The Time")
+
+# get data into shape
+nz <- nz_0 %>%
+  dplyr::mutate_if(is.character, factor) %>%
+  select(
+    -c(
+      SWB.Kessler01,
+      SWB.Kessler02,
+      SWB.Kessler03,
+      SWB.Kessler04,
+      SWB.Kessler05,
+      SWB.Kessler06
+    )
+  ) %>%
+  dplyr::mutate(Wave = as.factor(Wave)) %>%
+  mutate(FeelHopeless = forcats::fct_relevel(FeelHopeless, f)) %>%
+  mutate(FeelDepressed = forcats::fct_relevel(FeelDepressed, f)) %>%
+  mutate(FeelRestless = forcats::fct_relevel(FeelRestless, f)) %>%
+  mutate(EverythingIsEffort = forcats::fct_relevel(EverythingIsEffort, f)) %>%
+  mutate(FeelWorthless = forcats::fct_relevel(FeelWorthless, f)) %>%
+  mutate(FeelNervous = forcats::fct_relevel(FeelNervous, f)) %>%
+  dplyr::mutate(Wave = as.factor(Wave)) %>%
+  dplyr::mutate(date = make_date(year = 2009, month = 6, day = 30) + TSCORE) 
+```
+
+Q1. Warmup
+Using the nz dataset, make all the hours variables into integers
+
+```{r Question 1}
+
+#Q1. Changing variables into integers 
+
+nz1 <- nz %>% 
+  dplyr::mutate(
+           Hours.Exercise = as.integer(Hours.Exercise),
+           HLTH.SleepHours = as.integer(HLTH.SleepHours),
+           Hours.Internet = as.integer(Hours.Internet),
+           Hours.Work = as.integer(Hours.Work),
+           Hours.News = as.integer(Hours.News),
+           HoursCharity = as.integer(HoursCharity))
+str(nz1)
+
+#use str to check that they have been changed to integers. 
+
+```
+
+Q2a. Scale, center, transform
+Create a new indicator that standardises the Pol.Orient variable, create a new indicator that centers the Pol.Orient variable, create a new indicator that centres the Age variable in decade-long units. Do this in a single piped workflow.
+
+Print the head of the data frame so that we can see your work
+
+```{r Question 2A}
+
+NZ_2 <- nz%>% 
+  select(Pol.Orient, Age)%>%
+   mutate(Pol.Orient_S = scale(Pol.Orient, scale = TRUE, center  = TRUE))%>%
+  #new indicator and centered variable 
+         mutate(Age1 = scale(Age, scale = FALSE, center = TRUE)/10)
+#new indicator that centers age in decade long units 
+head(NZ_2)
+
+#/10 divide by 10 to create decade. 
+```
+
+Q2b Data wrangle
+Select Hour.Exercise and filter Wave 2019.
+
+```{r Question 2B}
+
+nz_4 <- nz%>% 
+  select(Hours.Exercise, Wave)%>%
+  mutate(Hours.Exercise_s = scale(Hours.Exercise, scale = TRUE, center = TRUE))%>%
+      filter(Wave == "2019")
+
+head(nz_4)
+```
+
+
+Q3. Working with dates
+What are the maximum number of responses for a single day in 2018 and the maximum number of responses for a single day in 2019?
+
+```{r Question 3}
+
+# the below code prints a tible that lists max # responses in descending order. 
+datrep5 <- nz %>%
+  count(day = floor_date(date, "day"))%>%
+  dplyr::mutate(Year = factor(ifelse(
+    day < "2018-01-01",
+    2017,
+    ifelse(day < "2019-01-01", 2018,
+           ifelse(day < "2020-01-01", 2019, 2020))
+  ))) %>%
+  arrange(day)
+
+datrep5%>%
+  arrange(desc(n))
+
+# looking at the above tible the answers are: 
+# max response for 2018 is 2018-06-21 (n=112)
+# max responses for 2019 is 2019-12-03 (n=54)
+
+```
+Q4 Caculating dates and creating summaries
+How many days are there between the date with the highest number of responses and the date with the second highest number of responses?
+
+Information is pulled from the above summary. 
+
+The date with the highest number of responses = 2018-06-21 (n=112)
+The date with second highest number of responses =  2018-06-22 (n=93)
+
+The days in between those two dates is one. 
+
+To use a package could use = 
+
+newvar <- lubridate::interval (ymd(""), ymd(""))
+time_length (d, "day")
+
+
+Bonus: 
+
+The difference between the number of responses is =
+```{r Q4}
+112-93 
+
+```
+Q5. Working with date intervals
+Suppose you were born on Dec 25, 1995 at 5.02:22 am Calculate your age in months on March 20,2021, at 1:22:04pm. 
+
+```{r Q5}
+
+# time between two dates in months
+
+interval(ymd_hms("1995-12-25 05:02:22"), ymd_hms("2021-03-20 13:22:04")) %/% months(1) 
+
+```
+Q6 Create an ordered factor from numeric data
+The Religion.Church variable contains responses to the question: “How many times each month do you attend church or religious service?”
+
+Create factor with the following three levels:
+
+People who attend church 0 times per month,
+People who attend church 1-3 times per month,
+People who attend church 4 or more times per month.
+Make sure to re-level the factor so that the ordinal ranking moves from lowest to highest.
+
+
+```{r Q6}
+# cut function 
+
+nz_5 <- nz %>% 
+  dplyr::mutate(Religion.Church = cut(Religion.Church, 
+                breaks = c(-Inf, 0, 4, Inf),
+                labels = c("No Attendance", "Moderate Attendance", "High Attendance"), 
+                right = TRUE
+                ))
+table(nz_5$Religion.Church, useNA = "ifany")
+  
+```
+
+
+Q7.a Make a summary table
+Using methods described in Lecture 4, create a table for average hours of sleep by month in the nz dataset
+
+Q7.b Make a summary graph
+Graph the average hours of sleep by month including 95% confidence intervals
+
+Briefly explain why some intervals are wider than others.
+
+```{r Q7a, warning=FALSE}
+# arranging the date into month format
+
+nz10 <- nz %>% 
+  select(date, HLTH.SleepHours) %>%
+  mutate(Months = month(date, label = TRUE)) %>% 
+  group_by(Months) %>% 
+  arrange(Months)
+
+
+# the table 
+library(kableExtra)
+nz10 %>%
+  select(HLTH.SleepHours, Months) %>%
+  filter(!is.na(HLTH.SleepHours))%>%
+  group_by(Months) %>%
+  summarise(av_sleep = mean(HLTH.SleepHours, na.rm = T))%>%
+  pivot_wider(names_from = Months, values_from = av_sleep) %>%
+  kbl(caption = "Ave Hours Sleep by Month") %>%
+  kable_classic_2(c("striped", "hover"), full_width = TRUE)%>%
+  collapse_rows() 
+
+
+# the summary graph 
+
+nz10 %>%
+  select(date, HLTH.SleepHours) %>%
+  mutate(Months = month(date, label = TRUE)) %>%
+  group_by(Months) %>%
+  summarise(
+    mn_sleep =  mean(HLTH.SleepHours, na.rm = TRUE),
+    sd_sleep =  sd(HLTH.SleepHours, na.rm = TRUE),
+    n_sleep = n()
+  ) %>%
+  mutate(
+    se_sleep = sd_sleep / sqrt(n_sleep),
+    lw_ci = mn_sleep - qt(1 - (0.05 / 2), n_sleep - 1) * se_sleep,
+    up_ci = mn_sleep + qt(1 - (0.05 / 2), n_sleep - 1) * se_sleep
+  ) %>%
+  ggplot(., aes(x = Months, y = mn_sleep, colour = mn_sleep)) +
+  geom_errorbar(aes(ymin = lw_ci, ymax = up_ci), width = .1) +
+  geom_point(size = 3) +
+  scale_y_continuous(limits = c(6,8)) + 
+  theme_classic() + scale_fill_viridis_d()
+
+  
+
+```
+
+Some intervals are wider than others in the above graph because there is more variation in the data for those months.  
+
+Q8. Correlation graph
+Created a correlation graph for the items in the Kessler 6 scale
+
+These are FeelHopeless,FeelDepressed,FeelRestless,EverythingIsEffort,FeelWorthless,FeelNervous
+
+```{r Q8, warning=FALSE}
+# transform data 
+
+corKes6 <- nz %>% 
+  select(FeelHopeless,
+         FeelDepressed,
+         FeelRestless,
+         EverythingIsEffort,
+         FeelWorthless,
+         FeelNervous, 
+         KESSLER6sum
+         ) %>%
+  mutate_all(., as.integer) %>%
+  mutate(KESSLER6sum = as.factor(KESSLER6sum),
+         FeelNervous = log(FeelNervous + 1))
+
+# correlation plot one  
+
+library(correlation)
+p1 <- corKes6 %>%
+  correlation(partial = FALSE, multilevel = TRUE ) %>%
+  plot()
+
+# viewing the first plot 
+
+corKes6 %>%
+  correlation(partial = FALSE, multilevel = TRUE ) %>%
+  summary()
+
+# correlation plot two 
+
+p2 <- corKes6 %>%
+  select(-KESSLER6sum)%>% 
+  correlation(partial = FALSE, multilevel = FALSE ) %>%
+  plot()
+
+
+corKes6 %>%
+  select(-KESSLER6sum)%>% 
+  correlation(partial = FALSE, multilevel = FALSE ) %>%
+  summary()
+
+# creating the correlation graph 
+
+library(patchwork)
+# create a two panel plot
+p1 / p2 + 
+  plot_annotation(title = "Plot of multilevel (a) and single-level (b) correlation", tag_levels = 'a') 
+
+# tried to use this code: plot_layout(widths = c(2, 5), heights = c(5, 2)) to change the size of the correlations, but it would only make one more squished and the other a little fatter! 
+  
+```
+What do you find most interesting about this plot?
+
+The stronger correlations in Plot b are between feeling hopeless, worthless and depressed. These are all highly negative states, but I wonder why there aren't equally as strong correlations between them and EverythingIsEffort.  
+
+Q9 Blank Papaja report is attached on blackboard. 
+
+Q10 Patchwork
+Use the patchwork library to create a figure with two plots on top of each other.
+
+```{r Q10, warning=FALSE}
+# two plots that are on top of each other using patchwork 
+
+p3 <- ggplot(data = nz, aes(x = KESSLER6sum, y = FeelNervous, fill = FeelNervous)) + 
+  geom_boxplot(notch=FALSE) + scale_fill_viridis_d() + 
+  ggtitle('Feeling Nervous')
+  
+
+p4 <- ggplot(data = nz, aes(x = KESSLER6sum, y = FeelHopeless, fill = FeelHopeless)) + 
+  geom_boxplot(notch=FALSE) + scale_fill_viridis_d() + 
+  ggtitle('Feeling Hopeless')
+
+p4_dims <- get_dim(p4)
+p3_aligned <- set_dim(p3, p4_dims)
+plot(p3_aligned)
+plot(p4)
+
+# code should make two plots that flash one on top of the other. Unsure if this is accurate as haven't been able to knit to PDF where it would show! 
+
+```
