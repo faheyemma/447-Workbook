@@ -1,0 +1,229 @@
+---
+title: "2021-03-25_Workbook_5"
+author: "Emma"
+date: "24/03/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, Libraries, include=FALSE}
+library(tidyverse)
+library(patchwork)
+library(lubridate)
+library(kableExtra)
+library(gtsummary)
+
+
+# read data
+nz_0 <- readr::read_csv2(url("https://raw.githubusercontent.com/go-bayes/psych-447/main/data/nz/nz.csv"))
+
+# to relevel kessler 6 variables
+f<-c("None Of The Time","A Little Of The Time","Some Of The Time",  "Most Of The Time", "All Of The Time")
+
+# get data into shape
+nz <- nz_0 %>%
+  dplyr::mutate_if(is.character, factor) %>%
+  select(
+    -c(
+      SWB.Kessler01,
+      SWB.Kessler02,
+      SWB.Kessler03,
+      SWB.Kessler04,
+      SWB.Kessler05,
+      SWB.Kessler06
+    )
+  ) %>%
+  dplyr::mutate(Wave = as.factor(Wave)) %>%
+  mutate(FeelHopeless = forcats::fct_relevel(FeelHopeless, f)) %>%
+  mutate(FeelDepressed = forcats::fct_relevel(FeelDepressed, f)) %>%
+  mutate(FeelRestless = forcats::fct_relevel(FeelRestless, f)) %>%
+  mutate(EverythingIsEffort = forcats::fct_relevel(EverythingIsEffort, f)) %>%
+  mutate(FeelWorthless = forcats::fct_relevel(FeelWorthless, f)) %>%
+  mutate(FeelNervous = forcats::fct_relevel(FeelNervous, f)) %>%
+  dplyr::mutate(Wave = as.factor(Wave)) %>%
+  dplyr::mutate(male_id = as.factor(Male)) %>%
+  dplyr::mutate(date = make_date(year = 2009, month = 6, day = 30) + TSCORE)
+
+md_df <- data.frame(read.table(url("https://raw.githubusercontent.com/avehtari/ROS-Examples/master/PearsonLee/data/MotherDaughterHeights.txt"), header=TRUE))
+
+# Center mother's height for later example
+md_df <- md_df %>%
+  dplyr::mutate(mother_height_c = as.numeric(scale(mother_height, center = TRUE, scale = FALSE)))
+dplyr::glimpse(md_df)
+
+# In 1903, Pearson and Lee collected 5,524 observations from mother/daughter height pairs. See lecture 5 for details
+```
+
+Question 1. 
+
+Create a descriptive table and a descriptive graph for the HLTH.Weight and HLTH.Height variables in the nz dataset
+Select HLTH.Weight, HLTH.Height from the nz dataset.
+
+Filter only the 2019 wave.
+
+Create a descriptive table and graph these two variables
+
+Annotate your workflow (at each step, describe what you are doing and why).
+
+```{r, Question One, warning=FALSE}
+
+nz_1 <- nz %>% 
+  select(HLTH.Weight, HLTH.Height, Wave, male_id) %>% #selecting only what I want table to include. 
+  filter (Wave == "2019") #filters so only data collected in wave 2019 present 
+  
+table1::table1(~ HLTH.Weight  + HLTH.Height |male_id, data = nz_1 )
+# making a table with height and weight, filtering by male id for question 2. 
+
+# the graph 
+ggplot(data = nz_1) + # selecting the data 
+  stat_summary(
+    mapping = aes(x = HLTH.Weight, y = HLTH.Height),
+    fun.min = min,# getting min for error bar
+    fun.max = max, # getting max for error bar 
+    fun = median #getting the mean for the dot
+  ) + 
+  labs(title = "Height and Weight Variables in NZ dataset") #adds a graph title
+
+
+```
+
+### Question 2 - Methods Summary 
+Total Participants in the New Zealand Attitudes and Values Study in 2019 was 2063. This included 752 participants that identified as male and 1305 that identified as not male. Male identifying participants weights ranged from 52kg to 165kg (*M* = 88.2kg, *SD* = 17.1kg). Heights ranged from 1.2m to 2.06m (*M* = 1.78m, *SD* = 0.08m). Three were 1305 Participants not identifying as male. Their weights ranged from 41kg to 200kg (*M* = 74.7kg, *SD* = 18kg) and heights ranged from 1.2m to 1.94m (*M* = 1.65m, *SD* = 0.07m). 
+
+
+3. Regression of height on weight and report results 
+using nz dataset write regression model. 
+
+```{r Question Three}
+
+#filtering
+nz_3 <- nz %>%
+  select (HLTH.Height, HLTH.Weight, Wave) %>%
+  filter (Wave == "2019") 
+
+#table
+model <- lm(HLTH.Weight ~ HLTH.Height, data = nz_3)
+sjPlot::tab_model(model)
+
+
+# graph
+explore_md <-ggplot2::ggplot(data = model, aes(y = HLTH.Height, x = HLTH.Weight)) + 
+  geom_jitter(alpha = .2) + 
+  labs(title = "The linear relationship between height and weight in the NZ dataset") +
+       ylab("Height") +
+       xlab("Weight") + theme_classic()
+explore_md
+
+# creating a second graph to show the prediction line so we can better clarify the results 
+explore_md_2 <- ggeffects::ggpredict(model, terms = "HLTH.Height") #this allows the prediction line 
+
+heightplot <- plot(explore_md_2, add.data = TRUE,  dot.alpha = .1, jitter = TRUE) +   theme_classic() #creating graph 
+heightplot + labs(title = "Regression model of height as predicted by weight in the NZ dataset") #adding title to it. 
+
+```
+
+### Brief report of the results Question 3
+The above table and graphs say that the average weight of a population is predicted by the average height. This prediction has a confidence interval between 1.51 and 1.53 (p = <0.001). This regression is statistically significant as confidence does not cross 0.  
+
+4. Using the nz dataset, write a regression model for height as predicted by male_id
+
+```{r Question 4}
+
+#filtering by wave
+nz_4 <- nz %>%
+  select (HLTH.Height, Wave, male_id) %>% #selecting only variables we are interested in. 
+  filter(Wave == "2019") #filtering to only 2019 wave. 
+
+#table
+model_2 <- lm(HLTH.Height ~ male_id, data = nz_4)
+sjPlot::tab_model(model_2) # creating a table of height vs male_id. 
+
+# graph
+Graph_4 <- ggeffects::ggpredict(model_2, terms = "male_id")
+# we use a predict graph because it helps to clarify data further 
+fourplot <- plot(Graph_4, add.data = TRUE, dot.alpha = .1, jitter = TRUE) +   theme_classic()
+fourplot + labs(title = "Predicted values of height from male_id from the NZ dataset")
+
+```
+
+### Brief report of the results Question 4. 
+
+The above table shows that the average height is predicted by the male_id variable. (CI = 1.77 - 1.78, p = <0.001). The graph depicts that on average and statistically significantly, those that identified as male in the dataset are taller. 
+
+5. Predict the heights of daughter of women in the nz dataset. 
+
+```{r Question 5 take 2}
+
+# looking at the labels of the pearson data. 
+head(md_df)
+
+# start with the linear model 
+lmdat2 <- lm(daughter_height ~ mother_height, data = md_df)
+sjPlot::tab_model(lmdat2)
+
+#then we want to make a new dataframe and expand its limits.
+
+nz_6 <- nz %>%
+  select (HLTH.Height, Wave, Male) %>%
+  filter(Wave == "2019", Male == "Not_Male")
+
+summary(nz_6) # this allows a summary of min/max etc.  
+#find that min height is 1.2m, max 1.94m 
+# but the pearson dataset is in inches not meters!! 
+# from google the NZ min is 47.2inches and max is 76.38inches. 
+
+# make a new dataframe and expand its limits to the NZ's min and max
+datafr1 <- expand.grid(mother_height = c(47.2:74.8))
+# this is the X variable 
+
+# use the `predict` function to create a new response 
+predict1 <- predict(lmdat2, type = "response", interval = "confidence", newdata = datafr1)
+# this creates the Y variable 
+
+# have a look at the object
+dplyr::glimpse(predict1)
+
+#Put X and Y variables together and report the findings 
+library(ggeffects)
+together <- ggeffects::ggpredict(lmdat2, terms = "mother_height")
+together # note the X is the mothers heights 
+
+```
+
+6. BONUS - diff in heights in women in 2019 nz compared with women in 1903 dataset. 
+clarify the inference. 
+
+```{r Question 6}
+
+# below is an attempt. Realised would need to transform one of the datasets to make them both the same measurement (ie ones in inches, ones in metres). 
+
+nz_60 <- nz %>%
+  filter(Wave == "2019", Male == "Not_Male") %>% #filtering only relevant columns
+  select(HLTH.Height) %>% # selecting only the heights
+  rename(Height = HLTH.Height) #renaming height columns
+
+head(nz_60) #checking the above has worked
+
+md_60 <- md_df %>%
+  select(mother_height) %>% #selecting only women heights
+  rename(Height = mother_height) #renaming so that both df's match 
+
+head(md_60) #checking the above worked
+
+library(compareDF) #will allow comparison of two datasets
+ctable_heights = compare_df(nz_60, md_60, c("Height")) #comparing both new df's with newly created columns "Height"
+
+ctable_heights$comparison_df #printing the outcome 
+
+print(ctable_heights) # peinting the full outcome 
+
+```
+
+ 
+
+
