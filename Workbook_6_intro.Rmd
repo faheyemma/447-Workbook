@@ -1,0 +1,127 @@
+---
+title: "Workbook_6_Intro"
+author: "Emma"
+date: "20/04/2021"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, libraries needed, include=FALSE}
+library(tidyverse)
+library(gendercoder)
+library(table1)
+library(patchwork)
+library(ggplot2)
+
+df <- read_csv("processed_nature.csv") # reading the data. 
+
+df$gender_code <- gendercoder::recode_gender(df$gender) # making the gender codes uniform as were free text entries. 
+df <- mutate(df, age_clean = if_else(age < 1000, age, 2021 - age)) # cleaning age variable to remove an extreme outlier. 
+
+# first reverse coding items for the happiness scale 
+
+df[,"shs_4"] <- lapply(df[,"shs_4_1" ], function(x){car::recode(x,"1 = 7; 2 = 6; 3 = 5; 4 = 4; 5 = 3; 6 = 2; 7 = 1")})
+
+#recoding nature connectedness as the scale was accidentally in the teens due to qualtrics error. 
+
+df[,paste0("natcon_", 1:14)] <- lapply(df[,paste0("natcon_", 1:14)], function(x){car::recode(x,"13 = 1; 14 = 2; 15 = 3; 16 = 4; 17 = 5")}) 
+
+# reverse coding 3x variables in the nature connectedness data. 
+df[,paste0("natcon_", c(4,12,14))] <- lapply(df[,paste0("natcon_", c(4,12,14))],
+                                             function(x){car::recode(x,"1 = 5; 2 = 4; 3 = 3; 4 = 2; 5 = 1")})  
+
+# generating mean scores for the scales. 
+
+df$swls <- rowMeans(df[paste0("swl_", 1:5)], na.rm = T) 
+df$shs <- rowMeans(df[paste0("shs_", 1:4, "_1")], na.rm = T) 
+df$natcon <- rowMeans(df[paste0("natcon_", 1:5)], na.rm = T)
+mean(df$age_clean)
+
+```
+
+# Could our Connectedness to Nature Influence our Happiness and Life Satisfaction
+
+### Introduction 
+Since the 1980s, the biophilia hypothesis has been researched to determine just how innate our connection with nature truly is (1). Exposure to nature has been shown to have both health and wellbeing benefits worldwide (2, 3). Specifically, green spaces have shown increases in happiness and meaning in life (4, 5.) For example, a recent study found that happiness in 30 of the wealthiest countries was only explained by the amount of urban green space in those countries (4). This prompts the question if it is just greenspaces that have this effect or if it could also be explained by how connected we feel to nature? 
+
+This question has particular importance with the ongoing COVID-19 pandemic. Findings have been released that having more positive natural worldviews improved general wellbeing across Japan and the US during COVID-19 (6). There have also been reports that tourism should focus more on connecting people to nature to achieve sustainability targets (7). 
+   
+Therefore, this article hypothesis is that participants that score higher in nature connectedness will also score higher in happiness and satisfaction with their life. 
+
+### Methods 
+
+Participants (n = 155) were recruited through an undergraduate introduction to psychology course at Victoria University, Wellington, New Zealand. Participants were awarded course credit for taking part in the study. The average age and gender ratio can be seen in the below table. One outlier was removed from the data set for having an age over 1000.
+
+
+
+```{r read data, echo=FALSE}
+
+# descriptive stats for demographics of the sample 
+table1::label(df$age_clean)     <- "Age"
+table1::label(df$gender_code)     <- "Gender"
+
+# table of the above 
+table1::table1(~ age_clean + gender_code, data = df)
+
+```
+**Life Satisfaction** was assessed using the Satisfaction with Life Scale (SWLS) (Diener et al. 1985). Participants responded to a likert 7-point scale. The items were preceded by the statement: “Below are five statements that you may agree or disagree with. Using the 1 – 7 scale below indicate your agreement with each item. Please be open and honest in your responding.” The scale ranged from  1(strongly disagree) to 7(strongly agree).
+
+**Happiness** was measured by the measure of subjective happiness scale (Lymbomirsky and Lepper 1999). This scale consists of 4 items that are rated between 1 and 7.  Values of the scale differed fro each question. The following statement was provided before commencement “For each of the following statements and/or questions, please select the point on the scale that you feel is most appropriate in describing you.”
+
+**Nature connectedness** was measured by the connectedness to nature scale (Mayer and Frantz 2004). Participants were given the following to read before answering the 14 items “For each of the following, please rate the extent to which you agree with each statement, using the scale from 1 (strongly disagree) to 5 (strongly agree). Please respond as you really feel, rather than how you think “most people” feel.”
+
+The describtive statistics for all scales are representing in the below table. 
+
+```{r, echo=FALSE}
+ #descriptive stats for all 3 scales - means etc. and then a graph of a couple
+table1::label(df$swls)     <- "Satisfaction with Life"
+table1::label(df$shs)     <- "Happiness"
+table1::label(df$natcon)  <- "Nature Connectedness"
+
+# table
+table1::table1(~ swls + shs + natcon, data = df)
+
+```
+
+Finally, the scales distributions are depicted in the following graphs. 
+
+
+```{r, echo=FALSE, error=FALSE, message=FALSE}
+
+# desriptive graphs to show distribution of the data 
+p1 <-
+  qplot(df$swls, geom = "histogram") + labs(title = "Satisfaction with Life") + xlab("swls")
+p2 <-
+  qplot(df$shs, geom = "histogram") + labs(title = "Happiness") + xlab("shs")
+p3 <- 
+  qplot(df$natcon, geom = "histogram") + labs(title = "Nature Connectedness") + xlab("natcon")
+
+plots_aligned <- align_patches(p1, p2, p3)
+for (p in plots_aligned) {
+  plot(p)}
+
+```
+
+
+### **References** 
+
+1.	Wilson, EO. *Biophilia*; Harvard University Press: Cambridge, MA, USA, 1984.
+
+2.	Shanahan, D., Astell–Burt, T., Barber, E., Brymer, E., Cox, D., Dean, J., … Gaston, K. (2019). Nature–Based Interventions for Improving Health and Wellbeing: The Purpose, the People and the Outcomes. *Sports, 7*(6), 141. 
+
+3.	Hartig T, Mang M, Evans GW. (1991). Restorative Effects of Natural Environment Experiences. *Environment and Behaviour. 23*(1), 3-26. 
+
+4.	Kwon, O., Hong, I., Yang, J., Wohn, D. Y., Jung, W., & Cha, M. (2021). Urban green space and happiness in developed countries. *arXiv preprint* (2101.00807). Accessed from: https://arxiv.org/abs/2101.00807 
+
+5.	Aruta, J.J.B.R. (2021). The quest to mental well-being: Nature connectedness, materialism and the mediating role of meaning in life in the Philippine context. *Current Psychology.* https://doi.org/10.1007/s12144-021-01523-y
+
+6.	Brian W. Haas, Fumiko Hoeft, Kazufumi Omura. (2021) The role of culture on the link between worldviews on nature and psychological health during the COVID-19 pandemic. *Personality and Individual Differences. 170.*  
+
+7.	Qiu, M., Sha, J., & Scott, N. (2021). Restoration of Visitors through Nature-Based Tourism: A Systematic Review, Conceptual Framework, and Future Research Directions. *International Journal of Environmental Research and Public Health, 18*(5), 2299. 
+
+
+
