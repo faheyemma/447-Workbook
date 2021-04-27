@@ -1,0 +1,192 @@
+---
+title: "Workbook_7"
+author: "Emma"
+date: "21/04/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Read data, include=FALSE}
+
+### Libraries
+library("tidyverse")
+library("patchwork")
+library("lubridate")
+library("kableExtra")
+library("gtsummary")
+library("lubridate")
+devtools::install_github("data-edu/tidyLPA")
+if (!require(tidyLPA)) {
+  install.packages("tidyLPA")
+}
+
+# read data
+
+nz_0 <- as.data.frame(readr::read_csv2(
+  url(
+    "https://raw.githubusercontent.com/go-bayes/psych-447/main/data/nzj.csv"
+  )
+))
+
+
+# to relevel kessler 6 variables
+f <-
+  c(
+    "None Of The Time",
+    "A Little Of The Time",
+    "Some Of The Time",
+    "Most Of The Time",
+    "All Of The Time"
+  )
+
+# get data into shape
+nz <- nz_0 %>%
+  dplyr::mutate_if(is.character, factor) %>%
+  select(
+    -c(
+      SWB.Kessler01,
+      SWB.Kessler02,
+      SWB.Kessler03,
+      SWB.Kessler04,
+      SWB.Kessler05,
+      SWB.Kessler06
+    )
+  ) %>%
+  dplyr::mutate(Wave = as.factor(Wave)) %>%
+  mutate(FeelHopeless = forcats::fct_relevel(FeelHopeless, f)) %>%
+  mutate(FeelDepressed = forcats::fct_relevel(FeelDepressed, f)) %>%
+  mutate(FeelRestless = forcats::fct_relevel(FeelRestless, f)) %>%
+  mutate(EverythingIsEffort = forcats::fct_relevel(EverythingIsEffort, f)) %>%
+  mutate(FeelWorthless = forcats::fct_relevel(FeelWorthless, f)) %>%
+  mutate(FeelNervous = forcats::fct_relevel(FeelNervous, f)) %>%
+  dplyr::mutate(Wave = as.factor(Wave)) %>%
+  dplyr::mutate(male_id = as.factor(Male)) %>%
+  dplyr::mutate(date = make_date(year = 2009, month = 6, day = 30) + TSCORE)%>%
+  dplyr::filter(Wave == 2019)
+
+```
+
+## Question 1 - Selection of Variables 
+
+Will be using\ 
+
+Hours.Exercise\ 
+
+Hours.SocialMedia\ 
+
+HLTH.SleepHours \ 
+
+male_id\ 
+
+## Question 2 - Means, SD, tables and graph. 
+
+The following table briefly describes the five variables above by providing the means and standard deviations of each variable. It also includes the amount of missing data in each variable. Note that not male is taken to mean that the individual identifies as female. 
+
+```{r, describing data, echo=FALSE, message=FALSE, warning=FALSE}
+
+destbl <-nz %>%
+  dplyr::select(
+    Hours.Exercise,
+    Hours.SocialMedia,
+    HLTH.SleepHours,
+    male_id,
+  ) %>%
+  gtsummary::tbl_summary(
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} / {N} ({p}%)"
+    ),
+    digits = all_continuous() ~ 2,
+    missing_text = "(Missing)"
+  )%>%
+  bold_labels() 
+destbl
+
+```
+
+## Question 3 - Write a single co-variate regression model with a continuous outcome. 
+
+```{r, regression model, warning=FALSE}
+
+# first we center the predictor variable  
+nz['Socialmedia_c'] = as.data.frame(scale(nz$Hours.SocialMedia, scale = FALSE) )
+
+# then we write the simple regression model 
+covar_model5 <- lm(HLTH.SleepHours ~ Socialmedia_c, data = nz) 
+
+#table it in R 
+parameters::parameters(covar_model5) 
+
+#generating a report 
+report::report(covar_model5) 
+
+
+# graphing the regression 
+library(ggplot2)
+ggplot2::ggplot(data = nz, 
+                aes( x = HLTH.SleepHours,  y = Socialmedia_c )) +
+  geom_smooth(method = "lm") + 
+  geom_point() + theme_classic()
+
+## finally, showing sleep hours as predicted by social media hours. 
+
+sjPlot::plot_model(covar_model5, type = "pred")
+
+```
+
+
+
+
+
+
+
+
+
+### Interpretation 
+
+From the prediction graph we can see that as social media hours increase, sleep hours tend to decrease in this model. From the report, we can see that this association is statistically significant, but weak. 
+
+
+
+## Question 4 
+Write a multiple co-variate regression model. 
+
+```{r}
+nz['Hoursexercise_c'] = as.data.frame(scale(nz$Hours.Exercise, scale = FALSE) )
+
+#creating the multivariate model
+
+multiple_model1 <- lm(HLTH.SleepHours ~ male_id + Hoursexercise_c + Socialmedia_c, data = nz)
+sjPlot::tab_model(multiple_model1)
+
+parameters::parameters(multiple_model1) # r table 
+
+report::report(multiple_model1) # report it 
+
+# graphing the results
+pp1 <- plot(ggeffects::ggpredict(multiple_model1, terms = c("male_id", "Hoursexercise_c", "Socialmedia_c")))
+pp1 
+
+#prediction plot 
+sjPlot::plot_model(multiple_model1, type = "pred")  
+
+```
+
+
+
+
+
+
+
+### Interpretation 
+
+The first graph above shows potential associations between all four variables. 
+The follow-up prediction graphs help to interpret information further as they pull out each prediction. For example, it seems that sleep hours have no effect on exercise hours, but male-id might.   
+However, from the report we can see that the only statistically significant association is between social media hours and sleep hours. This association is negative. 
+
+
